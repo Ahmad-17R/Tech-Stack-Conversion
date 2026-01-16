@@ -1,0 +1,115 @@
+# Azure DevOps Pipeline for VetSuccess .NET API
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    include:
+      - services/backend-dotnet/**
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  buildConfiguration: "Release"
+  dotnetVersion: "8.0.x"
+  projectPath: "services/backend-dotnet"
+
+stages:
+  - stage: Build
+    displayName: "Build and Test"
+    jobs:
+      - job: BuildJob
+        displayName: "Build .NET Application"
+        steps:
+          - task: UseDotNet@2
+            displayName: "Install .NET SDK"
+            inputs:
+              version: $(dotnetVersion)
+              includePreviewVersions: false
+
+          - task: DotNetCoreCLI@2
+            displayName: "Restore NuGet Packages"
+            inputs:
+              command: "restore"
+              projects: "$(projectPath)/VetSuccess.sln"
+
+          - task: DotNetCoreCLI@2
+            displayName: "Build Solution"
+            inputs:
+              command: "build"
+              projects: "$(projectPath)/VetSuccess.sln"
+              arguments: "--configuration $(buildConfiguration) --no-restore"
+
+          - task: DotNetCoreCLI@2
+            displayName: "Run Unit Tests"
+            inputs:
+              command: "test"
+              projects: "$(projectPath)/**/*Tests.csproj"
+              arguments: '--configuration $(buildConfiguration) --no-build --collect:"XPlat Code Coverage"'
+
+          - task: PublishCodeCoverageResults@1
+            displayName: "Publish Code Coverage"
+            inputs:
+              codeCoverageTool: "Cobertura"
+              summaryFileLocation: "$(Agent.TempDirectory)/**/*coverage.cobertura.xml"
+
+          - task: DotNetCoreCLI@2
+            displayName: "Publish Application"
+            inputs:
+              command: "publish"
+              publishWebProjects: false
+              projects: "$(projectPath)/src/VetSuccess.Api/VetSuccess.Api.csproj"
+              arguments: "--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)"
+              zipAfterPublish: true
+
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish Build Artifacts"
+            inputs:
+              PathtoPublish: "$(Build.ArtifactStagingDirectory)"
+              ArtifactName: "drop"
+              publishLocation: "Container"
+
+  - stage: Deploy_Dev
+    displayName: "Deploy to Development"
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    jobs:
+      - deployment: DeployDev
+        displayName: "Deploy to Dev Environment"
+        environment: "Development"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureWebApp@1
+                  displayName: "Deploy to Azure App Service"
+                  inputs:
+                    azureSubscription: "$(AzureSubscription)"
+                    appType: "webAppLinux"
+                    appName: "$(DevAppServiceName)"
+                    package: "$(Pipeline.Workspace)/drop/**/*.zip"
+                    runtimeStack: "DOTNETCORE|8.0"
+
+  - stage: Deploy_Prod
+    displayName: "Deploy to Production"
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployProd
+        displayName: "Deploy to Production Environment"
+        environment: "Production"
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureWebApp@1
+                  displayName: "Deploy to Azure App Service"
+                  inputs:
+                    azureSubscription: "$(AzureSubscription)"
+                    appType: "webAppLinux"
+                    appName: "$(ProdAppServiceName)"
+                    package: "$(Pipeline.Workspace)/drop/**/*.zip"
+                    runtimeStack: "DOTNETCORE|8.0"
