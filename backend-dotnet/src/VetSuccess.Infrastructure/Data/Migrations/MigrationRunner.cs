@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using Npgsql;
+using Microsoft.Data.SqlClient;
 
 namespace VetSuccess.Infrastructure.Data.Migrations;
 
@@ -26,7 +26,7 @@ public class MigrationRunner
 
         try
         {
-            await using var connection = new NpgsqlConnection(_connectionString);
+            await using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
 
             // Read the master migration script
@@ -45,7 +45,7 @@ public class MigrationRunner
 
             var script = await File.ReadAllTextAsync(scriptPath, cancellationToken);
 
-            await using var command = new NpgsqlCommand(script, connection);
+            await using var command = new SqlCommand(script, connection);
             command.CommandTimeout = 300; // 5 minutes timeout
 
             await command.ExecuteNonQueryAsync(cancellationToken);
@@ -68,7 +68,7 @@ public class MigrationRunner
 
         try
         {
-            await using var connection = new NpgsqlConnection(_connectionString);
+            await using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
 
             // Read the rollback script
@@ -87,7 +87,7 @@ public class MigrationRunner
 
             var script = await File.ReadAllTextAsync(scriptPath, cancellationToken);
 
-            await using var command = new NpgsqlCommand(script, connection);
+            await using var command = new SqlCommand(script, connection);
             command.CommandTimeout = 300; // 5 minutes timeout
 
             await command.ExecuteNonQueryAsync(cancellationToken);
@@ -110,18 +110,18 @@ public class MigrationRunner
 
         try
         {
-            await using var connection = new NpgsqlConnection(_connectionString);
+            await using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
 
             // Check if migrations table exists
             var checkTableSql = @"
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_name = '__migrations'
-                )";
+                SELECT CASE WHEN EXISTS (
+                    SELECT * FROM INFORMATION_SCHEMA.TABLES 
+                    WHERE TABLE_NAME = '__migrations'
+                ) THEN 1 ELSE 0 END";
 
-            await using var checkCommand = new NpgsqlCommand(checkTableSql, connection);
-            var tableExists = (bool)(await checkCommand.ExecuteScalarAsync(cancellationToken) ?? false);
+            await using var checkCommand = new SqlCommand(checkTableSql, connection);
+            var tableExists = (int)(await checkCommand.ExecuteScalarAsync(cancellationToken) ?? 0) == 1;
 
             if (!tableExists)
             {
@@ -135,7 +135,7 @@ public class MigrationRunner
                 FROM __migrations 
                 ORDER BY id";
 
-            await using var command = new NpgsqlCommand(sql, connection);
+            await using var command = new SqlCommand(sql, connection);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
             while (await reader.ReadAsync(cancellationToken))

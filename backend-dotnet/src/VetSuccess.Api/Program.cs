@@ -221,6 +221,15 @@ builder.Services.AddScoped<IOutcomeService, OutcomeService>();
 builder.Services.AddScoped<ISMSHistoryService, SMSHistoryService>();
 builder.Services.AddScoped<IOutcomeSideEffectsService, OutcomeSideEffectsService>();
 
+// Register Admin Services
+builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.AddScoped<IOutcomeAdminService, OutcomeAdminService>();
+builder.Services.AddScoped<IQuestionAdminService, QuestionAdminService>();
+builder.Services.AddScoped<IAnswerAdminService, AnswerAdminService>();
+builder.Services.AddScoped<IPracticeAdminService, PracticeAdminService>();
+builder.Services.AddScoped<IPracticeSettingsAdminService, PracticeSettingsAdminService>();
+builder.Services.AddScoped<ISMSTemplateAdminService, SMSTemplateAdminService>();
+
 // Register Background Jobs
 builder.Services.AddScoped<ISmsAggregationJob, VetSuccess.Infrastructure.Jobs.SmsAggregationJob>();
 builder.Services.AddScoped<ISmsSendingJob, VetSuccess.Infrastructure.Jobs.SmsSendingJob>();
@@ -243,7 +252,7 @@ builder.Services.AddSingleton<IBlobStorageService, AzureBlobStorageService>();
 builder.Services.AddSingleton<IEmailService, SendGridEmailService>();
 
 // Register AutoMapper
-builder.Services.AddAutoMapper(typeof(MappingProfile));
+builder.Services.AddAutoMapper(typeof(MappingProfile), typeof(VetSuccess.Application.Mappings.AdminMappingProfile));
 
 // Configure CORS
 builder.Services.AddCors(options =>

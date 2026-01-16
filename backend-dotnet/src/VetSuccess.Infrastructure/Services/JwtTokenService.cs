@@ -78,6 +78,53 @@ public class JwtTokenService : IAuthenticationService
         };
     }
 
+    public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
+    {
+        // Validate passwords match
+        if (request.Password != request.PasswordConfirm)
+        {
+            throw new Shared.Exceptions.ValidationException("Passwords do not match");
+        }
+
+        // Check if user already exists
+        var existingUser = await _userManager.FindByEmailAsync(request.Email);
+        if (existingUser != null)
+        {
+            throw new Shared.Exceptions.ValidationException("User with this email already exists");
+        }
+
+        // Create new user
+        var user = new User
+        {
+            Uuid = Guid.NewGuid(),
+            Email = request.Email,
+            UserName = request.Email,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        var result = await _userManager.CreateAsync(user, request.Password);
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            throw new Shared.Exceptions.ValidationException($"User registration failed: {errors}");
+        }
+
+        return new RegisterResponse
+        {
+            Message = "User registered successfully",
+            User = new UserInfo
+            {
+                Uuid = user.Uuid,
+                Email = user.Email!,
+                FirstName = request.FirstName,
+                LastName = request.LastName,
+                IsActive = true,
+                CreatedAt = user.CreatedAt
+            }
+        };
+    }
+
     private string GenerateAccessToken(User user)
     {
         var claims = new[]

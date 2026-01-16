@@ -38,4 +38,16 @@ public class AuthController : ControllerBase
         var result = await _authenticationService.RefreshTokenAsync(request.RefreshToken);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Register a new user
+    /// </summary>
+    [HttpPost("register")]
+    [ProducesResponseType(typeof(RegisterResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<RegisterResponse>> Register([FromBody] RegisterRequest request)
+    {
+        var result = await _authenticationService.RegisterAsync(request);
+        return StatusCode(StatusCodes.Status201Created, result);
+    }
 }

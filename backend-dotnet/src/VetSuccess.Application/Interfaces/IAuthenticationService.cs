@@ -6,4 +6,5 @@ public interface IAuthenticationService
 {
     Task<AuthenticationResult> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
     Task<AuthenticationResult> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
+    Task<RegisterResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default);
 }
